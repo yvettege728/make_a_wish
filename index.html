@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<title>Make a Wish</title>
+<link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Nanum+Gothic:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#fff;
+  --ink:#1e1d1b;
+  --pink:#F0567E;
+  --orange:#F1584D;
+  --soft:#fbf8f5;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;font-family:'Nanum Gothic';background:linear-gradient(#fff 0%,#fbf8f5 100%);color:var(--ink);overflow:hidden;}
+body{display:flex;align-items:center;justify-content:center;}
+
+.shell{
+  width:min(430px,100vw);height:min(860px,100vh);
+  position:relative;overflow:hidden;
+  background:linear-gradient(180deg,#fff 0%,#fff9f5 100%);
+  border-radius:42px;box-shadow:0 28px 80px rgba(0,0,0,0.05);
+}
+@media(max-width:430px){.shell{border-radius:0;width:100vw;height:100vh;}}
+
+/* ========== 顶部 header ========== */
+.hdr{position:absolute;top:20px;left:20px;right:20px;z-index:30;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;}
+.hdr-brand{font-family:'Nanum Myeongjo';font-size:18px;color:rgba(30,29,27,0.78);}
+.hdr-brand span{display:block;font-size:10px;margin-top:5px;text-transform:uppercase;letter-spacing:0.18em;color:rgba(30,29,27,0.34);}
+.hdr-count{font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:rgba(30,29,27,0.35);margin-top:4px;}
+
+/* ========== Entry 蒙层 + 关闭按钮 ========== */
+.entry{position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(180deg,#fff 80%,#fff9f2 100%);transition:opacity 500ms;}
+.entry.gone{opacity:0;pointer-events:none;}
+.entry-x{
+  position:absolute;top:18px;right:18px;
+  width:36px;height:36px;border:none;border-radius:50%;
+  background:rgba(30,29,27,0.04);color:rgba(30,29,27,0.54);
+  font-size:20px;cursor:pointer;font-family:'Nanum Gothic';
+  display:flex;align-items:center;justify-content:center;
+  transition:background 160ms;
+  z-index:42;
+}
+.entry-x:hover{background:rgba(30,29,27,0.10);color:rgba(30,29,27,0.82);}
+.entry h1{font-family:'Nanum Myeongjo';font-size:56px;font-weight:500;text-align:center;color:rgba(30,29,27,0.9);}
+.entry-copy{max-width:254px;margin-top:26px;font-size:12px;line-height:1.92;text-align:center;color:rgba(30,29,27,0.48);}
+.entry-btns{display:flex;flex-direction:column;gap:10px;width:220px;margin-top:28px;}
+.eb{border:none;border-radius:999px;padding:13px 18px;font-size:12px;cursor:pointer;font-family:'Nanum Gothic';transition:transform 160ms;}
+.eb:hover{transform:translateY(-1px);}
+.eb.p{background:linear-gradient(135deg,var(--pink),var(--orange));color:#fff;box-shadow:0 16px 28px rgba(240,86,126,0.22);}
+.eb.s{background:rgba(255,255,255,0.84);color:rgba(30,29,27,0.8);border:1px solid rgba(30,29,27,0.07);}
+
+/* ========== Waterfall 容器 (轴测视角) ========== */
+.waterfall-wrap{
+  position:absolute;inset:0;z-index:10;
+  overflow:hidden;
+  background:linear-gradient(180deg,#fff 0%,#fdfaf8 50%,#fbf8f5 100%);
+}
+.waterfall-scroll{
+  position:absolute;inset:0;
+  overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  perspective:1400px;
+  perspective-origin:50% 30%;
+  padding-top:90px;
+  padding-bottom:140px;
+}
+.waterfall-scroll::-webkit-scrollbar{display:none;}
+.waterfall-scroll{scrollbar-width:none;}
+.waterfall-stage{
+  position:relative;
+  transform-style:preserve-3d;
+  width:100%;
+}
+
+/* ========== 单张愿望卡(轴测) ========== */
+.wcard{
+  position:absolute;
+  left:50%;
+  width:300px;
+  margin-left:-150px;
+  transform-origin:center center;
+  /* 关键:轴测倾斜,从右上压向左下 */
+  transform:translateZ(0) rotateX(58deg) rotateZ(-22deg);
+  transition:transform 220ms ease, box-shadow 220ms ease;
+  cursor:pointer;
+  will-change:transform;
+}
+.wcard-inner{
+  position:relative;
+  width:100%;
+  aspect-ratio:3/4;
+  border-radius:14px;
+  overflow:hidden;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.7) inset,
+    0 14px 28px rgba(26,24,23,0.18),
+    0 4px 10px rgba(26,24,23,0.10);
+  background:#fff;
+  transition:box-shadow 220ms;
+}
+.wcard:hover{
+  transform:translateZ(40px) rotateX(50deg) rotateZ(-18deg) scale(1.04);
+}
+.wcard:hover .wcard-inner{
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.7) inset,
+    0 24px 44px rgba(26,24,23,0.24),
+    0 8px 16px rgba(26,24,23,0.14);
+}
+/* 新卡飞入动画:从右上方 + 更大倾斜 → 滑到当前位置 */
+.wcard.wcard-entering{
+  animation:wcardDrop 720ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes wcardDrop{
+  0%{
+    transform:translate(180px, -240px) translateZ(120px) rotateX(70deg) rotateZ(-44deg) scale(1.18);
+    opacity:0;
+  }
+  35%{
+    opacity:1;
+  }
+  70%{
+    transform:translate(8px, 6px) translateZ(28px) rotateX(54deg) rotateZ(-19deg) scale(1.04);
+  }
+  100%{
+    transform:translateZ(0) rotateX(58deg) rotateZ(-22deg);
+    opacity:1;
+  }
+}
+/* 照片型 */
+.wcard-photo{
+  width:100%;height:100%;
+  object-fit:cover;
+  display:block;
+  background:#f3efeb;
+}
+/* 文字模板型 */
+.wcard-template{
+  width:100%;height:100%;
+  display:flex;flex-direction:column;
+  padding:22px 20px;
+  position:relative;
+}
+.wcard-template::before{
+  /* 模板纸张纹理 */
+  content:"";
+  position:absolute;inset:0;
+  background-image:
+    repeating-linear-gradient(0deg,rgba(255,255,255,0) 0px,rgba(255,255,255,0) 28px,rgba(30,29,27,0.04) 28px,rgba(30,29,27,0.04) 29px);
+  pointer-events:none;
+}
+.wcard-template::after{
+  /* 边角装饰 */
+  content:"";
+  position:absolute;left:14px;top:14px;
+  width:12px;height:12px;
+  border-top:1px solid rgba(255,255,255,0.5);
+  border-left:1px solid rgba(255,255,255,0.5);
+}
+.wcard-tpl-tag{
+  font-size:9px;
+  letter-spacing:0.18em;
+  text-transform:uppercase;
+  color:rgba(255,255,255,0.78);
+  margin-bottom:14px;
+  position:relative;
+  z-index:1;
+}
+.wcard-tpl-text{
+  font-family:'Nanum Myeongjo';
+  font-size:22px;
+  line-height:1.22;
+  color:rgba(255,255,255,0.96);
+  flex:1;
+  display:flex;
+  align-items:center;
+  position:relative;
+  z-index:1;
+  text-shadow:0 1px 2px rgba(0,0,0,0.18);
+}
+.wcard-tpl-meta{
+  font-size:9px;
+  letter-spacing:0.12em;
+  color:rgba(255,255,255,0.62);
+  position:relative;
+  z-index:1;
+}
+
+/* 9 种 tag 主题色——文字模板背景 */
+.tpl-family     {background:linear-gradient(135deg,#F08A9A 0%,#E86880 100%);}
+.tpl-health     {background:linear-gradient(135deg,#FF8C42 0%,#F1584D 100%);}
+.tpl-identity   {background:linear-gradient(135deg,#C97BEB 0%,#9664C8 100%);}
+.tpl-housing    {background:linear-gradient(135deg,#64B4F0 0%,#4682C8 100%);}
+.tpl-work       {background:linear-gradient(135deg,#F0B450 0%,#D8821E 100%);}
+.tpl-politics   {background:linear-gradient(135deg,#9664C8 0%,#5E3C8C 100%);}
+.tpl-environment{background:linear-gradient(135deg,#78C88C 0%,#3C8C50 100%);}
+.tpl-education  {background:linear-gradient(135deg,#B48CC8 0%,#7C5896 100%);}
+.tpl-other      {background:linear-gradient(135deg,#9CA3AF 0%,#4B5563 100%);}
+
+/* ========== 单卡详情 ========== */
+.detail-overlay{
+  position:absolute;inset:0;z-index:55;
+  background:rgba(20,18,16,0.74);
+  backdrop-filter:blur(14px);
+  display:flex;align-items:center;justify-content:center;
+  padding:30px 22px;
+  opacity:0;pointer-events:none;
+  transition:opacity 280ms;
+}
+.detail-overlay.show{opacity:1;pointer-events:auto;}
+.detail-card{
+  width:100%;max-width:340px;
+  aspect-ratio:3/4;
+  border-radius:18px;overflow:hidden;
+  box-shadow:0 30px 60px rgba(0,0,0,0.42);
+  position:relative;
+  transform:scale(0.85) rotateZ(-6deg);
+  transition:transform 320ms cubic-bezier(0.34,1.56,0.64,1);
+  background:#fff;
+}
+.detail-overlay.show .detail-card{
+  transform:scale(1) rotateZ(0deg);
+}
+.detail-x{
+  position:absolute;top:14px;right:14px;
+  width:36px;height:36px;border:none;border-radius:50%;
+  background:rgba(255,255,255,0.92);color:rgba(30,29,27,0.7);
+  font-size:18px;cursor:pointer;z-index:60;
+  display:flex;align-items:center;justify-content:center;
+}
+.detail-meta{
+  position:absolute;bottom:-44px;left:0;right:0;
+  text-align:center;
+  font-size:10px;letter-spacing:0.18em;
+  color:rgba(255,255,255,0.74);
+  text-transform:uppercase;
+}
+
+/* ========== 底部 filter ========== */
+.fbar-wrap{position:absolute;left:14px;right:14px;bottom:18px;z-index:25;display:flex;justify-content:center;}
+.fbar{display:flex;gap:6px;max-width:100%;overflow-x:auto;padding:8px;border-radius:999px;background:rgba(255,255,255,0.78);backdrop-filter:blur(14px);border:1px solid rgba(30,29,27,0.05);}
+.fbar::-webkit-scrollbar{display:none;}
+.fbar{scrollbar-width:none;}
+.fc{border:none;border-radius:999px;padding:6px 12px;white-space:nowrap;background:transparent;color:rgba(30,29,27,0.42);font-size:10px;cursor:pointer;font-family:'Nanum Gothic';transition:all 150ms;}
+.fc:hover{color:rgba(30,29,27,0.72);}
+.fc.on{background:linear-gradient(135deg,var(--pink),var(--orange));color:#fff;}
+
+/* ========== FAB ========== */
+.fab{position:absolute;right:18px;bottom:76px;z-index:28;width:54px;height:54px;border:none;border-radius:50%;background:linear-gradient(135deg,var(--pink),var(--orange));color:#fff;font-size:24px;cursor:pointer;box-shadow:0 16px 30px rgba(240,86,126,0.22);font-weight:300;}
+.fab-menu{position:absolute;right:18px;bottom:138px;z-index:27;display:flex;flex-direction:column;align-items:flex-end;gap:8px;}
+.fo{display:inline-flex;align-items:center;gap:8px;border:none;padding:9px 14px;border-radius:999px;background:rgba(255,255,255,0.94);color:rgba(30,29,27,0.76);font-size:11px;cursor:pointer;backdrop-filter:blur(12px);box-shadow:0 16px 26px rgba(26,24,23,0.06);font-family:'Nanum Gothic';}
+
+/* ========== Submit modal ========== */
+#app-modals{position:absolute;inset:0;z-index:60;pointer-events:none;}
+#app-modals .mo{pointer-events:auto;}
+.mo{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;padding:18px;background:rgba(255,255,255,0.38);backdrop-filter:blur(8px);}
+.md{position:relative;width:100%;max-height:min(76vh,680px);overflow-y:auto;border-radius:28px;padding:20px 18px 22px;background:rgba(255,255,255,0.97);box-shadow:0 28px 70px rgba(26,24,23,0.10);}
+.md-x{position:absolute;top:14px;right:14px;width:34px;height:34px;border:none;border-radius:50%;background:rgba(30,29,27,0.04);color:rgba(30,29,27,0.46);font-size:18px;cursor:pointer;}
+.md h2{margin-top:10px;font-family:'Nanum Myeongjo';font-size:30px;font-weight:500;color:rgba(30,29,27,0.92);}
+.sub{margin-top:10px;margin-bottom:18px;font-size:12px;line-height:1.7;color:rgba(30,29,27,0.48);}
+.fs{margin-bottom:16px;}
+.fl{display:block;margin-bottom:8px;font-size:10px;text-transform:uppercase;letter-spacing:0.16em;color:rgba(30,29,27,0.34);}
+.ta{width:100%;min-height:112px;border:none;border-radius:18px;padding:14px 16px;background:#fbf9f7;color:rgba(30,29,27,0.9);font-family:'Nanum Myeongjo';font-size:24px;resize:none;line-height:1.15;}
+.ta:focus{outline:none;box-shadow:inset 0 0 0 1px rgba(240,86,126,0.25);background:#fff;}
+.cc{margin-top:6px;text-align:right;font-size:10px;color:rgba(30,29,27,0.28);}
+.tg{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+.tc{border:none;border-radius:16px;padding:11px 12px;background:#fbf9f7;color:rgba(30,29,27,0.54);font-size:11px;cursor:pointer;text-align:left;line-height:1.35;font-family:'Nanum Gothic';transition:all 150ms;}
+.tc:hover{transform:translateY(-1px);}
+.tc.sel{background:linear-gradient(135deg,var(--pink),var(--orange));color:#fff;}
+.sb{width:100%;border:none;border-radius:999px;padding:14px 18px;background:linear-gradient(135deg,var(--pink),var(--orange));color:#fff;cursor:pointer;font-size:12px;letter-spacing:0.06em;font-family:'Nanum Gothic';}
+.sb:disabled{opacity:0.34;cursor:not-allowed;}
+.rm{position:absolute;top:10px;right:10px;width:30px;height:30px;border:none;border-radius:50%;background:rgba(30,29,27,0.55);color:#fff;cursor:pointer;}
+
+/* ========== Sealed 全屏印章动画 ========== */
+.stamp-ov{position:absolute;inset:0;z-index:70;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,0.96);backdrop-filter:blur(14px);opacity:0;pointer-events:none;transition:opacity 320ms;}
+.stamp-ov.show{opacity:1;pointer-events:auto;}
+.st-h{font-family:'Nanum Myeongjo';font-size:62px;line-height:0.9;color:var(--pink);}
+.st-num{margin-top:14px;padding:8px 14px;border-radius:999px;background:rgba(240,86,126,0.10);color:rgba(240,86,126,0.88);font-size:11px;letter-spacing:0.18em;text-transform:uppercase;font-family:'Nanum Gothic';}
+.st-time{margin-top:10px;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:rgba(30,29,27,0.44);font-family:'Nanum Gothic';}
+
+/* ========== 状态指示器 ========== */
+.status{position:absolute;bottom:20px;left:20px;font-size:10px;color:#999;z-index:20;font-family:'Nanum Gothic';}
+.status.ok{color:#6c8;}
+
+/* 空态 */
+.empty{
+  position:absolute;top:50%;left:0;right:0;
+  text-align:center;color:rgba(30,29,27,0.34);
+  font-size:13px;line-height:1.7;
+  transform:translateY(-50%);
+  padding:0 40px;
+}
+.empty .em-h{font-family:'Nanum Myeongjo';font-size:22px;color:rgba(30,29,27,0.62);margin-bottom:10px;}
+</style>
+</head>
+<body>
+<div class="shell" id="shell">
+
+  <!-- Header -->
+  <div class="hdr">
+    <div class="hdr-brand">Make a Wish<span>a participatory archive</span></div>
+    <div class="hdr-count" id="wc">0 wishes</div>
+  </div>
+
+  <!-- Waterfall 容器 (一直存在,被 entry 遮住) -->
+  <div class="waterfall-wrap">
+    <div class="waterfall-scroll" id="wfScroll">
+      <div class="waterfall-stage" id="wfStage"></div>
+    </div>
+  </div>
+
+  <!-- Detail overlay -->
+  <div class="detail-overlay" id="detailOv" onclick="handleDetailBgClick(event)">
+    <div class="detail-card" id="detailCard"></div>
+    <div class="detail-meta" id="detailMeta"></div>
+  </div>
+
+  <!-- Entry 蒙层 -->
+  <div id="entry" class="entry">
+    <button class="entry-x" onclick="dismissEntry(null)" title="Skip">×</button>
+    <h1>Make a Wish</h1>
+    <div class="entry-copy">when you write down a personal wish, you are joining a collective archive of who we are. What we fear. What we still believe in. You are not alone in this.</div>
+    <div class="entry-btns">
+      <button class="eb p" onclick="dismissEntry('on_site')">I'm here</button>
+      <button class="eb s" onclick="dismissEntry('remote')">Submit remotely</button>
+    </div>
+  </div>
+
+  <!-- 底部 filter -->
+  <div class="fbar-wrap"><div class="fbar" id="fbar"></div></div>
+
+  <!-- FAB -->
+  <button class="fab" id="fabBtn" onclick="toggleFab()">+</button>
+  <div id="fabMenu" class="fab-menu" style="display:none">
+    <button class="fo" onclick="openSubmit('on_site')"><span style="width:6px;height:6px;border-radius:50%;background:linear-gradient(135deg,#F0567E,#F1584D);display:inline-block;"></span>On-site</button>
+    <button class="fo" onclick="openSubmit('remote')"><span style="width:6px;height:6px;border-radius:50%;background:linear-gradient(135deg,#F0567E,#F1584D);display:inline-block;"></span>Remote</button>
+  </div>
+
+  <!-- Submit modal -->
+  <div id="app-modals"></div>
+
+  <!-- Sealed 印章 -->
+  <div id="stampOv" class="stamp-ov">
+    <div class="st-h">Wish sealed!</div>
+    <div class="st-num" id="stampNum"></div>
+    <div class="st-time" id="stampTime"></div>
+  </div>
+
+  <!-- 状态 -->
+  <div id="status" class="status">• Connecting...</div>
+</div>
+
+<script>
+// ====== 配置 ======
+const TAGS = [
+  { id: 'family',      label: 'Family & Relationships' },
+  { id: 'health',      label: 'Health' },
+  { id: 'identity',    label: 'Identity & Belonging' },
+  { id: 'housing',     label: 'Housing' },
+  { id: 'work',        label: 'Work & Economy' },
+  { id: 'politics',    label: 'Politics & Public Life' },
+  { id: 'environment', label: 'Environment & Climate' },
+  { id: 'education',   label: 'Education' },
+  { id: 'other',       label: 'Other' }
+];
+
+const CARD_OFFSET = 70;   // 每张卡垂直叠加像素
+const CARD_HEIGHT = 400;
+
+let wishes = [];
+let activeFilters = [];
+let fabOpen = false;
+let entryDone = false;
+let pollTimer = null;
+let openDetailId = null;
+let windowState = {
+  submitTags: [],
+  submitPhotoFile: null,
+  submitPhotoPreviewUrl: null,
+  submitSource: 'remote'
+};
+
+// ====== 工具函数 ======
+function sanitizeFileName(fileName) {
+  const trimmed = String(fileName || 'upload').trim().toLowerCase();
+  const collapsed = trimmed.replace(/[^a-z0-9.]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  return collapsed || 'upload';
+}
+
+function buildStorageObjectPath(source, fileName) {
+  const now = new Date();
+  const safeSource = source === 'on_site' ? 'on-site' : 'remote';
+  const stamp = now.toISOString().replace(/[-:]/g, '').replace(/\./g, '');
+  const y = String(now.getUTCFullYear());
+  const m = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(now.getUTCDate()).padStart(2, '0');
+  return `${safeSource}/${y}/${m}/${d}/${stamp}-${sanitizeFileName(fileName)}`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+}
+
+function setStatus(msg, ok = false) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status' + (ok ? ' ok' : '');
+}
+
+function updateCount() {
+  document.getElementById('wc').textContent = wishes.length + ' wishes';
+}
+
+function fmtTime(ts) {
+  const d = new Date(ts || Date.now());
+  return d.toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  }).toUpperCase();
+}
+
+function wishNumber(wish) {
+  // 按时间正序的编号(第 N 个许愿)
+  const sorted = [...wishes].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  return sorted.findIndex(w => w.id === wish.id) + 1;
+}
+
+// ====== API ======
+async function api(method, body = null) {
+  const url = '/api/wishes';
+  const init = method === 'POST'
+    ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    : { method: 'GET' };
+  const r = await fetch(url, init);
+  if (!r.ok) {
+    const text = await r.text();
+    throw new Error(`${method} ${r.status}: ${text}`);
+  }
+  return await r.json();
+}
+
+async function uploadPhoto(file, source) {
+  const objectPath = buildStorageObjectPath(source, file.name);
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('path', objectPath);
+  const r = await fetch('/api/upload', { method: 'POST', body: formData });
+  if (!r.ok) {
+    const text = await r.text();
+    throw new Error('Upload failed: ' + text);
+  }
+  const data = await r.json();
+  return data.publicUrl;
+}
+
+// ====== Filter ======
+function renderFilters() {
+  let h = `<button class="fc ${activeFilters.length === 0 ? 'on' : ''}" onclick="setFilter(null)">All</button>`;
+  TAGS.forEach(t => {
+    const on = activeFilters.includes(t.id);
+    h += `<button class="fc ${on ? 'on' : ''}" onclick="setFilter('${t.id}')">${t.label}</button>`;
+  });
+  document.getElementById('fbar').innerHTML = h;
+}
+
+// ====== 单张愿望卡组件 ======
+function buildWishCardHTML(wish) {
+  const isOnSite = wish.source === 'on_site';
+  const hasPhoto = !!wish.photo_url;
+
+  if (hasPhoto) {
+    // 照片型(线上线下都一样)
+    return `<div class="wcard-inner">
+      <img class="wcard-photo" src="${escapeHtml(wish.photo_url)}" alt="" loading="lazy" onerror="this.style.display='none'"/>
+    </div>`;
+  } else if (wish.wish_text) {
+    // 文字模板型
+    const primaryTag = (wish.tags && wish.tags[0]) || 'other';
+    const tagLabel = TAGS.find(t => t.id === primaryTag)?.label || 'OTHER';
+    const num = wishNumber(wish);
+    return `<div class="wcard-inner wcard-template tpl-${primaryTag}">
+      <div class="wcard-tpl-tag">${escapeHtml(tagLabel)}</div>
+      <div class="wcard-tpl-text">${escapeHtml(wish.wish_text)}</div>
+      <div class="wcard-tpl-meta">#${String(num).padStart(4, '0')} · ${escapeHtml(isOnSite ? 'on-site' : 'remote')}</div>
+    </div>`;
+  } else {
+    return `<div class="wcard-inner wcard-template tpl-other">
+      <div class="wcard-tpl-text" style="font-size:14px;color:rgba(255,255,255,0.5);">(empty wish)</div>
+    </div>`;
+  }
+}
+
+// ====== Render 瀑布 ======
+// newWishIds: Set<string>,这些 id 的卡会播飞入动画
+function renderWaterfall(newWishIds) {
+  const stage = document.getElementById('wfStage');
+  const filtered = wishes.filter(w =>
+    activeFilters.length === 0 || (w.tags || []).some(t => activeFilters.includes(t))
+  );
+
+  if (filtered.length === 0) {
+    stage.innerHTML = `<div class="empty">
+      <div class="em-h">No wishes yet</div>
+      <div>The first one is always the hardest.<br/>Tap + to leave a wish.</div>
+    </div>`;
+    stage.style.height = '100%';
+    return;
+  }
+
+  // 时间倒序:最新在最上面
+  const sorted = [...filtered].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const totalHeight = (sorted.length - 1) * CARD_OFFSET + CARD_HEIGHT;
+  stage.style.height = totalHeight + 'px';
+
+  let html = '';
+  sorted.forEach((wish, i) => {
+    const top = i * CARD_OFFSET;
+    const z = sorted.length - i;  // 最新的 z 最高,盖在旧卡上
+    const enteringClass = (newWishIds && newWishIds.has(wish.id)) ? ' wcard-entering' : '';
+    html += `<div class="wcard${enteringClass}" style="top:${top}px;z-index:${z};" data-wish-id="${escapeHtml(wish.id)}" onclick="openDetail('${escapeHtml(wish.id)}')">
+      ${buildWishCardHTML(wish)}
+    </div>`;
+  });
+  stage.innerHTML = html;
+
+  // 自动滚动到顶部,确保用户看到新卡
+  if (newWishIds && newWishIds.size > 0) {
+    const scrollEl = document.getElementById('wfScroll');
+    if (scrollEl) scrollEl.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+// ====== 详情 ======
+window.openDetail = function(wishId) {
+  const wish = wishes.find(w => w.id === wishId);
+  if (!wish) return;
+  openDetailId = wishId;
+  const card = document.getElementById('detailCard');
+  card.innerHTML = buildWishCardHTML(wish);
+  // 让内部撑满
+  const inner = card.querySelector('.wcard-inner');
+  if (inner) {
+    inner.style.boxShadow = 'none';
+    inner.style.borderRadius = '18px';
+    inner.style.aspectRatio = 'auto';
+    inner.style.height = '100%';
+  }
+  // 加 close 按钮
+  const x = document.createElement('button');
+  x.className = 'detail-x';
+  x.textContent = '×';
+  x.onclick = e => { e.stopPropagation(); closeDetail(); };
+  card.appendChild(x);
+
+  const num = wishNumber(wish);
+  const tagLabels = (wish.tags || []).map(t => TAGS.find(x => x.id === t)?.label || t).join(' · ');
+  document.getElementById('detailMeta').innerHTML =
+    `#${String(num).padStart(4, '0')} · ${escapeHtml(wish.source === 'on_site' ? 'on-site' : 'remote')} · ${escapeHtml(tagLabels)}<br/>${fmtTime(wish.created_at)}`;
+  document.getElementById('detailOv').classList.add('show');
+};
+
+window.handleDetailBgClick = function(e) {
+  // 只有点到背景才关闭
+  if (e.target.classList.contains('detail-overlay')) closeDetail();
+};
+
+function closeDetail() {
+  document.getElementById('detailOv').classList.remove('show');
+  openDetailId = null;
+}
+
+// ====== 加载 + 实时同步 ======
+async function load() {
+  setStatus('• Loading...');
+  try {
+    const data = await api('GET');
+    wishes = Array.isArray(data) ? data : [];
+    updateCount();
+    renderFilters();
+    renderWaterfall();
+    setStatus('✓ Synced (' + wishes.length + ')', true);
+    startPolling();
+  } catch (e) {
+    console.error('[Load]', e.message);
+    wishes = [];
+    updateCount();
+    renderFilters();
+    renderWaterfall();
+    setStatus('✗ Load failed: ' + e.message);
+    startPolling();  // 即使失败也启动轮询,后续可能恢复
+  }
+}
+
+function startPolling() {
+  if (pollTimer) return;
+  pollTimer = setInterval(async () => {
+    try {
+      const next = await api('GET');
+      if (!Array.isArray(next)) return;
+      // 用 id 集合比较新增的卡
+      const oldIds = new Set(wishes.map(w => w.id));
+      const newIds = new Set(next.map(w => w.id));
+      const addedIds = new Set();
+      for (const id of newIds) {
+        if (!oldIds.has(id)) addedIds.add(id);
+      }
+      let changed = oldIds.size !== newIds.size || addedIds.size > 0;
+      if (changed) {
+        wishes = next;
+        updateCount();
+        renderWaterfall(addedIds);
+        setStatus('✓ Synced (' + wishes.length + ')', true);
+      }
+    } catch (e) {
+      console.error('[Poll]', e.message);
+    }
+  }, 3000);
+}
+
+// ====== Modal ======
+function modal(html) {
+  const wrap = document.createElement('div');
+  wrap.className = 'mo';
+  wrap.innerHTML = html;
+  wrap.addEventListener('click', e => { if (e.target === wrap) closeAllModals(); });
+  document.getElementById('app-modals').appendChild(wrap);
+}
+
+function closeAllModals() {
+  document.querySelectorAll('#app-modals .mo').forEach(el => el.remove());
+  resetPhotoState();
+}
+
+function resetPhotoState() {
+  if (windowState.submitPhotoPreviewUrl) URL.revokeObjectURL(windowState.submitPhotoPreviewUrl);
+  windowState.submitPhotoFile = null;
+  windowState.submitPhotoPreviewUrl = null;
+}
+
+// ====== window 函数 ======
+window.setFilter = function(id) {
+  activeFilters = !id ? [] : (activeFilters.includes(id) ? activeFilters.filter(x => x !== id) : [...activeFilters, id]);
+  renderFilters();
+  renderWaterfall();
+};
+
+window.toggleFab = function() {
+  fabOpen = !fabOpen;
+  document.getElementById('fabBtn').textContent = fabOpen ? '×' : '+';
+  document.getElementById('fabMenu').style.display = fabOpen ? 'flex' : 'none';
+};
+
+window.closeModal = function() { closeAllModals(); };
+
+window.openSubmit = function(source) {
+  fabOpen = false;
+  document.getElementById('fabBtn').textContent = '+';
+  document.getElementById('fabMenu').style.display = 'none';
+  windowState.submitTags = [];
+  resetPhotoState();
+  windowState.submitSource = source;
+  const isOn = source === 'on_site';
+  const photoLabel = isOn ? 'Tap to capture' : 'Tap to upload';
+  const photoIcon = isOn ? '◌' : '⌁';
+  const photoBox = `<div id="sm-pw"><label style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;min-height:130px;border-radius:22px;border:1px dashed rgba(240,86,126,0.25);background:linear-gradient(180deg,rgba(240,86,126,0.035),rgba(241,88,77,0.03));cursor:pointer;"><input type="file" accept="image/*" onchange="smP(this)" style="display:none;"/><div style="font-size:26px;color:var(--pink);">${photoIcon}</div><div style="font-size:12px;color:rgba(30,29,27,0.52);">${photoLabel}</div></label></div>`;
+  const photoSection = isOn
+    ? `<div class="fs"><label class="fl">Photo <span style="color:var(--pink);">*</span></label>${photoBox}</div>`
+    : `<div class="fs"><label class="fl">Photo (optional)</label>${photoBox}</div>`;
+  const textSection = isOn
+    ? ''
+    : `<div class="fs"><label class="fl">Your wish</label><textarea class="ta" id="sm-t" placeholder="I wish..." maxlength="500" oninput="smU()"></textarea><div class="cc" id="sm-c">0/500</div></div>`;
+  const tagSection = `<div class="fs"><label class="fl">Tags <span style="color:var(--pink);">*</span></label><div class="tg">${TAGS.map(t => `<button class="tc" type="button" onclick="smT(this,'${t.id}')">${t.label}</button>`).join('')}</div><div style="margin-top:6px;text-align:right;font-size:10px;color:rgba(30,29,27,0.28);" id="sm-th">0/2</div></div>`;
+  modal(`<div class="md" onclick="event.stopPropagation()"><button class="md-x" onclick="closeModal()">×</button><h2>${isOn ? 'Upload your wish card' : 'What do you wish for?'}</h2><p class="sub">${isOn ? 'Use a photo of your handwritten card, then choose up to two tags.' : 'Leave a short wish fragment, then choose up to two tags.'}</p>${textSection}${photoSection}${tagSection}<button class="sb" id="sm-sb" type="button" onclick="smS()" disabled>Submit wish</button></div>`);
+  setTimeout(() => window.smCk(), 100);
+};
+
+window.smU = function() {
+  const f = document.getElementById('sm-t');
+  if (f) document.getElementById('sm-c').textContent = f.value.length + '/500';
+  window.smCk();
+};
+
+window.smP = function(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { alert('Please choose an image file.'); input.value = ''; return; }
+  resetPhotoState();
+  const previewUrl = URL.createObjectURL(file);
+  windowState.submitPhotoFile = file;
+  windowState.submitPhotoPreviewUrl = previewUrl;
+  document.getElementById('sm-pw').innerHTML = `<div style="position:relative;overflow:hidden;border-radius:22px;background:#fbf9f7;"><img src="${previewUrl}" alt="" style="display:block;width:100%;"/><button class="rm" onclick="smRp()">×</button></div>`;
+  window.smCk();
+};
+
+window.smRp = function() {
+  resetPhotoState();
+  const isOn = windowState.submitSource === 'on_site';
+  const photoLabel = isOn ? 'Tap to capture' : 'Tap to upload';
+  const photoIcon = isOn ? '◌' : '⌁';
+  document.getElementById('sm-pw').innerHTML = `<label style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;min-height:130px;border-radius:22px;border:1px dashed rgba(240,86,126,0.25);background:linear-gradient(180deg,rgba(240,86,126,0.035),rgba(241,88,77,0.03));cursor:pointer;"><input type="file" accept="image/*" onchange="smP(this)" style="display:none;"/><div style="font-size:26px;color:var(--pink);">${photoIcon}</div><div style="font-size:12px;color:rgba(30,29,27,0.52);">${photoLabel}</div></label>`;
+  window.smCk();
+};
+
+window.smT = function(btn, id) {
+  const tags = windowState.submitTags || [];
+  if (tags.includes(id)) {
+    windowState.submitTags = tags.filter(x => x !== id);
+    btn.classList.remove('sel');
+  } else if (tags.length < 2) {
+    windowState.submitTags = [...tags, id];
+    btn.classList.add('sel');
+  }
+  document.getElementById('sm-th').textContent = windowState.submitTags.length + '/2';
+  window.smCk();
+};
+
+window.smCk = function() {
+  const isOn = windowState.submitSource === 'on_site';
+  const text = (document.getElementById('sm-t')?.value || '').trim();
+  const hasPhoto = !!windowState.submitPhotoFile;
+  const hasTags = (windowState.submitTags || []).length > 0;
+  const valid = isOn ? (hasPhoto && hasTags) : ((text.length > 0 || hasPhoto) && hasTags);
+  document.getElementById('sm-sb').disabled = !valid;
+};
+
+window.smS = async function() {
+  const isOn = windowState.submitSource === 'on_site';
+  const text = (document.getElementById('sm-t')?.value || '').trim();
+  const tags = windowState.submitTags || [];
+  if (!tags.length) { alert('Please choose at least one tag'); return; }
+  if (isOn && !windowState.submitPhotoFile) { alert('Please upload a photo'); return; }
+  if (!isOn && !text && !windowState.submitPhotoFile) { alert('Please write a wish or upload a photo'); return; }
+
+  setStatus('• Saving...');
+  try {
+    const photoUrl = windowState.submitPhotoFile
+      ? await uploadPhoto(windowState.submitPhotoFile, windowState.submitSource)
+      : null;
+    const wish = {
+      source: isOn ? 'on_site' : 'remote',
+      wish_text: isOn ? null : text,
+      tags: [...tags],
+      photo_url: photoUrl,
+      reactions: { pray: 0, heart: 0, sparkle: 0, thought: 0 }
+    };
+    // 记下提交前的 id 集合,用于识别新卡
+    const beforeIds = new Set(wishes.map(w => w.id));
+    await api('POST', wish);
+    closeAllModals();
+    // 刷新数据并触发飞入动画
+    const data = await api('GET');
+    wishes = Array.isArray(data) ? data : [];
+    const addedIds = new Set();
+    for (const w of wishes) {
+      if (!beforeIds.has(w.id)) addedIds.add(w.id);
+    }
+    updateCount();
+    renderFilters();
+    renderWaterfall(addedIds);
+    setStatus('✓ Synced (' + wishes.length + ')', true);
+    showStamp();
+  } catch (e) {
+    console.error('[Save]', e.message);
+    alert(e.message || 'Failed to save. Try again.');
+    setStatus('✗ Save failed');
+  }
+};
+
+function showStamp() {
+  const ov = document.getElementById('stampOv');
+  const num = wishes.length;
+  document.getElementById('stampNum').textContent = `wish #${String(num).padStart(4, '0')} sealed`;
+  document.getElementById('stampTime').textContent = fmtTime();
+  ov.classList.add('show');
+  setTimeout(() => { ov.classList.remove('show'); }, 2400);
+}
+
+window.dismissEntry = function(source) {
+  if (entryDone) return;
+  entryDone = true;
+  document.getElementById('entry').classList.add('gone');
+  setTimeout(() => {
+    document.getElementById('entry').style.display = 'none';
+    if (source) window.openSubmit(source);
+  }, 520);
+};
+
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (openDetailId) closeDetail();
+    else closeAllModals();
+  }
+});
+
+// ====== 启动 ======
+load();
+</script>
+</body>
+</html>
